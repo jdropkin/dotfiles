@@ -3,12 +3,14 @@
 call plug#begin('~/.config/nvim/plugged')
 
 " ---- Utilities ---- "
-Plug 'ctrlpvim/ctrlp.vim'
 Plug 'itchyny/lightline.vim'
 Plug 'junegunn/goyo.vim'
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'rust-lang/rust.vim'
 Plug 'itchyny/vim-gitbranch'
+Plug 'tpope/vim-surround'
+Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+Plug 'junegunn/fzf.vim'
 
 " ---- Theme ---- "
 Plug 'jdropkin/ayu-vim'
@@ -58,6 +60,8 @@ set ignorecase "Search ignoring case
 set smartcase "Search using smart case
 set incsearch "Start searching immediately
 
+autocmd BufRead *.{c,h} set filetype=c.doxygen
+
 " --- Split Options --- "
 set splitbelow "Split to the bottom
 set splitright "Split to the right
@@ -75,6 +79,12 @@ nnoremap <C-l> <C-w>l
 " --- Conveniemt Remaps --- "
 inoremap jk <Esc>
 nnoremap <leader>w :w<cr>
+
+" --- FZF --- "
+let g:fzf_layout = { 'window': { 'width': 0.8, 'height': 0.8 } }
+let $FZF_DEFAULT_OPTS='--reverse'
+nnoremap <C-p> :Files<CR>
+nnoremap <leader>p :GFiles<CR>
 
 " --- CoC --- "
 set updatetime=300 "Lots of people have this
@@ -103,6 +113,17 @@ nmap <silent> gr <Plug>(coc-references)
 " Use `:CocDiagnostics` to get all diagnostics of current buffer in location list.
 nmap <silent> [g <Plug>(coc-diagnostic-prev)
 nmap <silent> ]g <Plug>(coc-diagnostic-next)
+
+" Use K to show documentation in preview window
+nnoremap <silent> K :call <SID>show_documentation()<CR>
+
+function! s:show_documentation()
+  if (index(['vim','help'], &filetype) >= 0)
+    execute 'h '.expand('<cword>')
+  else
+    call CocAction('doHover')
+  endif
+endfunction
 
 " --- Bash Language Server --- "
 let g:LanguageClient_serverCommands = {
