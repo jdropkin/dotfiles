@@ -76,9 +76,11 @@ nnoremap <C-j> <C-w>j
 nnoremap <C-k> <C-w>k
 nnoremap <C-l> <C-w>l
 
-" --- Conveniemt Remaps --- "
+" --- Convenient Remaps --- "
 inoremap jk <Esc>
-nnoremap <leader>w :w<cr>
+nnoremap <leader>w :w<CR>
+nnoremap <leader>r :Rg<CR>
+nnoremap <leader>ts :setlocal spell! spell?<CR> " Toggle spell check
 
 " --- FZF --- "
 let g:fzf_layout = { 'window': { 'width': 0.8, 'height': 0.8 } }
