@@ -4,13 +4,23 @@ call plug#begin('~/.config/nvim/plugged')
 
 " ---- Utilities ---- "
 Plug 'itchyny/lightline.vim'
-Plug 'junegunn/goyo.vim'
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'rust-lang/rust.vim'
 Plug 'itchyny/vim-gitbranch'
 Plug 'tpope/vim-surround'
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
+Plug 'nvim-lua/popup.nvim'
+Plug 'roxma/nvim-yarp'
+Plug 'roxma/vim-hug-neovim-rpc'
+Plug 'neovim/nvim-lspconfig'
+Plug 'ojroques/nvim-lspfuzzy'
+Plug 'folke/lsp-colors.nvim'
+if has('nvim') || has('patch-8.0.902')
+  Plug 'mhinz/vim-signify'
+else
+  Plug 'mhinz/vim-signify', { 'branch': 'legacy' }
+endif
+
 
 " ---- Theme ---- "
 Plug 'jdropkin/ayu-vim'
@@ -51,7 +61,7 @@ set sidescrolloff=1 "Keep cursor from scrolling onto overflow indicators
 set mouse=a "Enable mouse
 set colorcolumn=81 "Show lines > 80 chars
 set laststatus=2 "Always show status bar
-set noshowmode "Don't show mode, lightline does anywas
+"set noshowmode "Don't show mode, lightline does anywas
 set hidden "Hide unsaved buffers when closing them
 
 " --- Search Options --- "
@@ -81,6 +91,11 @@ inoremap jk <Esc>
 nnoremap <leader>w :w<CR>
 nnoremap <leader>r :Rg<CR>
 nnoremap <leader>ts :setlocal spell! spell?<CR> " Toggle spell check
+nnoremap <leader>h :nohl<CR>
+nnoremap <leader>t :tabnext<CR>
+nnoremap <leaderT :tabprev<CR>
+nnoremap <C-t> :tabnew<CR>
+tnoremap jk <C-\><C-n>
 
 " --- FZF --- "
 let g:fzf_layout = { 'window': { 'width': 0.8, 'height': 0.8 } }
@@ -88,49 +103,9 @@ let $FZF_DEFAULT_OPTS='--reverse'
 nnoremap <C-p> :Files<CR>
 nnoremap <leader>p :GFiles<CR>
 
-" --- CoC --- "
-set updatetime=300 "Lots of people have this
-
-" Use tab for trigger completion with characters ahead and navigate.
-" NOTE: Use command ':verbose imap <tab>' to make sure tab is not mapped by
-" other plugin before putting this into your config.
-inoremap <silent><expr> <TAB>
-      \ pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<TAB>" :
-      \ coc#refresh()
-inoremap <expr><S-TAB> pumvisible() ? "\<C-p>" : "\<C-h>"
-
-function! s:check_back_space() abort
-  let col = col('.') - 1
-  return !col || getline('.')[col - 1]  =~# '\s'
-endfunction
-
-" GoTo code navigation.
-nmap <silent> gd <Plug>(coc-definition)
-nmap <silent> gy <Plug>(coc-type-definition)
-nmap <silent> gi <Plug>(coc-implementation)
-nmap <silent> gr <Plug>(coc-references)
-
-" Use `[g` and `]g` to navigate diagnostics
-" Use `:CocDiagnostics` to get all diagnostics of current buffer in location list.
-nmap <silent> [g <Plug>(coc-diagnostic-prev)
-nmap <silent> ]g <Plug>(coc-diagnostic-next)
-
-" Use K to show documentation in preview window
-nnoremap <silent> K :call <SID>show_documentation()<CR>
-
-function! s:show_documentation()
-  if (index(['vim','help'], &filetype) >= 0)
-    execute 'h '.expand('<cword>')
-  else
-    call CocAction('doHover')
-  endif
-endfunction
-
-" --- Bash Language Server --- "
-let g:LanguageClient_serverCommands = {
-    \ 'sh': ['bash-language-server', 'start']
-    \ }
+" --- Deoplete --- "
+let g:deoplete#enable_at_startup = 1
+inoremap <expr><TAB>  pumvisible() ? "\<C-n>" : "\<TAB>"
 
 " --- Strip whitespace from EOL on write --- "
 function! <SID>StripTrailingWhitespace()
@@ -146,39 +121,39 @@ endfun
 
 autocmd BufWritePre * :call <SID>StripTrailingWhitespace()
 
-" --- Lightline --- "
-let g:lightline = {
-    \ 'colorscheme': 'ayu_mirage',
-    \ 'active': {
-    \ 'left': [ ['mode', 'paste'],
-    \           ['cocstatus', 'filename', 'gitbranch', 'modified'] ]
-    \ },
-    \ 'component_function': {
-    \   'cocstatus': 'coc#status',
-    \   'filename': 'LightLineFilename',
-    \   'gitbranch': 'gitbranch#name'
-    \ },
-    \ 'separator': { 'left': '', 'right': '' },
-    \ 'subseparator': { 'left': '', 'right': '' }
-    \ }
+" Change these if you want
+let g:signify_sign_add               = '+'
+let g:signify_sign_delete            = '_'
+let g:signify_sign_delete_first_line = '‾'
+let g:signify_sign_change            = '~'
 
-" ---- Modified ---- "
-function! LightLineModified()
-    return &ft =~ 'help' ? '' : &modified ? '+' : &modifiable ? '' : '-'
-endfunction
+" I find the numbers disctracting
+let g:signify_sign_show_count = 0
+let g:signify_sign_show_text = 1
 
-" ---- Read Only ---- "
-function! LightLineReadonly()
-    return &ft !~? 'help' && &readonly ? '' : ''
-endfunction
+" --- LSP --- "
+lua <<EOF
+local lsp = require 'lspconfig'
 
-" ---- File Name ---- "
-function! LightLineFilename()
-    let fname = expand('%:t')
-    return ('' != LightLineReadonly() ? LightLineReadonly() . ' ' : '') .
-                \ ('' != fname ? fname : '[No Name]') .
-                \ ('' != LightLineModified() ? ' ' . LightLineModified() : '')
-endfunction
+local on_attach = function(client, bufnr)
+    local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
+    local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
+
+    buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+
+    --vim.api.nvim_command 'autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_sync()'
+
+    local opts = { noremap=true, silent=true }
+    buf_set_keymap('n', 'gD', '<Cmd>lua vim.lsp.buf.declaration()<CR>', opts)
+    buf_set_keymap('n', 'gd', '<Cmd>lua vim.lsp.buf.definition()<CR>', opts)
+    buf_set_keymap('n', 'gr', '<Cmd>lua vim.lsp.buf.references()<CR>', opts)
+    --buf_set_keymap('n', '<space>h', '<Cmd>lua vim.lsp.buf.hover()<CR>', opts)
+    buf_set_keymap('n', '<space>r', '<Cmd>lua vim.lsp.buf.rename()<CR>', opts)
+    buf_set_keymap('n', '<space>n', '<Cmd>lua vim.lsp.diagnostic.goto_next()<CR>', opts)
+    buf_set_keymap('n', '<space>p', '<Cmd>lua vim.lsp.diagnostic.goto_prev()<CR>', opts)
+end
+
+EOF
 
 " --- Tags --- "
 set tags=.tags,tags;$HOME
@@ -191,3 +166,5 @@ if has("autocmd")
     au BufReadPost * if line("'\"") > 0 && line ("'\"") <= line("$")
       \| exe "normal! g'\"" | endif
 endif
+
+
